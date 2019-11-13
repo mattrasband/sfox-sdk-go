@@ -104,7 +104,6 @@ type WithdrawResponse struct {
 	Error   string `json:"error"`
 }
 
-// TODO: untested (getting 504s)
 func (c *Client) Withdraw(amount decimal.Decimal, currency, address string) (WithdrawResponse, error) {
 	var request struct {
 		Amount   decimal.Decimal `json:"amount"`
