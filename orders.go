@@ -10,10 +10,6 @@ import (
 type AlgoID int
 
 const (
-	// Can/should we expose these? What's the difference?
-	Market  AlgoID = 100
-	Instant AlgoID = 150
-
 	SmartAlgo     AlgoID = 200
 	GorillaAlgo   AlgoID = 301
 	TortoiseAlgo  AlgoID = 302
