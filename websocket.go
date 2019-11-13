@@ -97,6 +97,7 @@ func (w *Websocket) Listen(ctx context.Context, feeds []string) (<-chan Event, e
 	conn, _, err := websocket.DefaultDialer.Dial(w.host, nil)
 	feed := make(chan Event, 100)
 	if err != nil {
+		conn.Close()
 		close(feed)
 		return feed, err
 	}
