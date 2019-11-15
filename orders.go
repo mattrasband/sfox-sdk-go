@@ -57,7 +57,7 @@ type Order struct {
 	StatusCode    int             `json:"status_code"`
 	ClientOrderID string          `json:"client_order_id"`
 	Updated       Time            `json:"dateupdated"`
-	Expires       *Time           `json:""expires"`
+	Expires       *Time           `json:"expires"`
 	Fees          decimal.Decimal `json:"fees"`
 	NetProceeds   decimal.Decimal `json:"net_proceeds"`
 	Proceeds      decimal.Decimal `json:"proceeds"`
