@@ -36,7 +36,7 @@ type NewOrder struct {
 	Quantity      decimal.Decimal `json:"quantity"`
 	Pair          string          `json:"currency_pair"`
 	Price         decimal.Decimal `json:"price"`
-	AlgoID        AlgoID          `json:"algo_id"`
+	AlgoID        AlgoID          `json:"algorithm_id"`
 	ClientOrderID string          `json:"client_order_id"`
 	// seconds
 	Interval int64 `json:"interval"`
