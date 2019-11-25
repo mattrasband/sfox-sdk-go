@@ -1,7 +1,12 @@
 package sfox
 
 import (
+	"errors"
 	"fmt"
+)
+
+var (
+	ErrUnknownPayload = errors.New("Unknown payload")
 )
 
 type ErrHttp struct {
