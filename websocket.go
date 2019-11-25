@@ -3,39 +3,50 @@ package sfox
 import (
 	"context"
 	"encoding/json"
-	"regexp"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/shopspring/decimal"
 )
 
 const (
-	WebsocketHost = "wss://ws.sfox.com/ws"
-	subscribe     = "subscribe"
-	unsubscribe   = "unsubscribe"
-)
-
-var (
-	wsTypeRe = regexp.MustCompile(`recipient":\s*"([^.]+)`)
+	ProductionWebsocketHost = "wss://ws.sfox.com/ws"
 )
 
 type Websocket struct {
 	host string
 }
 
-type subscribeMsg struct {
-	Type  string   `json:"type"`
-	Feeds []string `json:"feeds"`
-}
-
 type WebsocketEnvelope struct {
-	Type      string `json:"type"`
-	Sequence  int64  `json:"sequence"`
-	Timestamp int64  `json:"timestamp"`
-	Recipient string `json:"recipient"`
+	Type       string          `json:"type"`
+	Sequence   int64           `json:"sequence"`
+	Timestamp  int64           `json:"timestamp"`
+	Recipient  string          `json:"recipient"`
+	RawPayload json.RawMessage `json:"payload"` // delay parsing
 }
 
-type TickerPayload struct {
+func (wse *WebsocketEnvelope) Payload() (interface{}, error) {
+	const (
+		tickerPrefix    = "ticker"
+		orderbookPrefix = "orderbook"
+		tradePrefix     = "trade"
+	)
+
+	var reified interface{}
+	if strings.HasPrefix(wse.Recipient, tickerPrefix) {
+		reified = &TickerMsg{}
+	} else if strings.HasPrefix(wse.Recipient, orderbookPrefix) {
+		reified = &OrderbookMsg{}
+	} else if strings.HasPrefix(wse.Recipient, tradePrefix) {
+		reified = &TradeMsg{}
+	} else {
+		return nil, ErrUnknownPayload
+	}
+
+	return reified, json.Unmarshal(wse.RawPayload, reified)
+}
+
+type TickerMsg struct {
 	Amount   decimal.Decimal `json:"amount"`
 	Exchange string          `json:"exchange"`
 	Open     decimal.Decimal `json:"open"`
@@ -50,12 +61,7 @@ type TickerPayload struct {
 	Time     Time            `json:"timestamp"`
 }
 
-type WSTicker struct {
-	WebsocketEnvelope
-	Payload TickerPayload `json:"payload"`
-}
-
-type OrderbookPayload struct {
+type OrderbookMsg struct {
 	Bids          []BidAsk          `json:"bids"`
 	Asks          []BidAsk          `json:"asks"`
 	Timestamps    map[string][]Time `json:"timestamps"`
@@ -65,12 +71,7 @@ type OrderbookPayload struct {
 	Currency      string            `json:"currency"`
 }
 
-type WSOrderbook struct {
-	WebsocketEnvelope
-	Payload OrderbookPayload `json:"payload"`
-}
-
-type TradePayload struct {
+type TradeMsg struct {
 	ID          string          `json:"id"`
 	Pair        string          `json:"pair"`
 	Price       decimal.Decimal `json:"price,string"`
@@ -83,14 +84,9 @@ type TradePayload struct {
 	Timestamp   Time            `json:"timestamp"`
 }
 
-type WSTrade struct {
-	WebsocketEnvelope
-	Payload TradePayload `json:"payload"`
-}
-
 type Event struct {
+	Msg WebsocketEnvelope
 	Err error
-	Msg interface{}
 }
 
 func (w *Websocket) Listen(ctx context.Context, feeds []string) (<-chan Event, error) {
@@ -106,47 +102,24 @@ func (w *Websocket) Listen(ctx context.Context, feeds []string) (<-chan Event, e
 		defer close(feed)
 		defer conn.Close()
 
-		err := conn.WriteJSON(subscribeMsg{Type: subscribe, Feeds: feeds})
+		err := conn.WriteJSON(struct {
+			Type  string   `json:"type"`
+			Feeds []string `json:"feeds"`
+		}{
+			Type:  "subscribe",
+			Feeds: feeds,
+		})
 		if err != nil {
 			feed <- Event{Err: err}
 			return
 		}
 
 		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				feed <- Event{Err: err}
-			} else {
-				match := wsTypeRe.FindSubmatch(data)
-				if len(match) > 0 {
-					evt := Event{}
-
-					switch string(match[1]) {
-					case "ticker":
-						var msg WSTicker
-						if err := json.Unmarshal(data, &msg); err != nil {
-							evt.Err = err
-						}
-						evt.Msg = msg
-
-					case "trades":
-						var msg WSTrade
-						if err := json.Unmarshal(data, &msg); err != nil {
-							evt.Err = err
-						}
-						evt.Msg = msg
-
-					case "orderbook":
-						var msg WSOrderbook
-						if err := json.Unmarshal(data, &msg); err != nil {
-							evt.Err = err
-						}
-						evt.Msg = msg
-					}
-
-					feed <- evt
-				}
+			evt := Event{}
+			if err := conn.ReadJSON(&evt.Msg); err != nil {
+				evt.Err = err
 			}
+			feed <- evt
 
 			select {
 			case <-ctx.Done():
@@ -160,7 +133,11 @@ func (w *Websocket) Listen(ctx context.Context, feeds []string) (<-chan Event, e
 }
 
 func NewWebsocket() *Websocket {
+	return NewWebsocketWithHost(ProductionWebsocketHost)
+}
+
+func NewWebsocketWithHost(host string) *Websocket {
 	return &Websocket{
-		host: WebsocketHost,
+		host: host,
 	}
 }
