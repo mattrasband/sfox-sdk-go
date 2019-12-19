@@ -33,15 +33,15 @@ func (c *Client) AssetPairs() (AssetPairs, error) {
 }
 
 type NewOrder struct {
-	Quantity      decimal.Decimal `json:"quantity"`
-	Pair          string          `json:"currency_pair"`
-	Price         decimal.Decimal `json:"price"`
-	AlgoID        AlgoID          `json:"algorithm_id"`
-	ClientOrderID string          `json:"client_order_id"`
-	// seconds
-	Interval int64 `json:"interval"`
-	// seconds
-	TotalTime int64 `json:"total_time"`
+	Quantity      decimal.Decimal        `json:"quantity"`
+	Pair          string                 `json:"currency_pair"`
+	Price         decimal.Decimal        `json:"price"`
+	AlgoID        AlgoID                 `json:"algorithm_id"`
+	ClientOrderID string                 `json:"client_order_id"`
+	Interval      int64                  `json:"interval"`   // seconds
+	TotalTime     int64                  `json:"total_time"` // seconds
+	RoutingType   string                 `json:"routing_type"`
+	Extra         map[string]interface{} `json:"extra"`
 }
 
 type Order struct {
@@ -92,6 +92,13 @@ func (c *Client) PlaceOrder(side Side, newOrder NewOrder) (Order, error) {
 		if newOrder.TotalTime != 0 {
 			order["total_time"] = newOrder.TotalTime
 		}
+	}
+
+	if newOrder.RoutingType != "" {
+		order["routing_type"] = newOrder.RoutingType
+	}
+	if len(newOrder.Extra) > 0 {
+		order["extra"] = newOrder.Extra
 	}
 
 	var resp Order
