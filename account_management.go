@@ -13,7 +13,7 @@ type Balance struct {
 	Currency  string          `json:"currency"`
 	Balance   decimal.Decimal `json:"balance"`
 	Available decimal.Decimal `json:"available"`
-	Held      decimal.Decimal `json"held"`
+	Held      decimal.Decimal `json:"held"`
 }
 
 func (c *Client) AccountBalance() ([]Balance, error) {
